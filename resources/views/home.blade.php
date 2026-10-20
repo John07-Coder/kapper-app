@@ -69,6 +69,30 @@
         </div>
     </section>
 
+    <section class="border-y border-stone-200 bg-white">
+        <div class="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+            <p class="text-sm font-semibold uppercase tracking-widest text-amber-600">Zo werkt het</p>
+            <h2 class="mt-2 text-3xl font-bold text-stone-900">In drie stappen klaar</h2>
+            <ol class="mt-8 grid gap-6 md:grid-cols-3">
+                <li class="rounded-2xl border border-stone-200 bg-stone-50 p-6">
+                    <p class="text-sm font-bold text-amber-600">01</p>
+                    <h3 class="mt-3 text-lg font-bold text-stone-900">Kies een dag</h3>
+                    <p class="mt-2 text-sm text-stone-600">Dinsdag tot en met zaterdag, tot {{ config('salon.booking_window_days') }} dagen vooruit.</p>
+                </li>
+                <li class="rounded-2xl border border-stone-200 bg-stone-50 p-6">
+                    <p class="text-sm font-bold text-amber-600">02</p>
+                    <h3 class="mt-3 text-lg font-bold text-stone-900">Kies een tijd</h3>
+                    <p class="mt-2 text-sm text-stone-600">Elke knipbeurt duurt {{ config('salon.service.duration') }} minuten. Bezette tijden zie je niet.</p>
+                </li>
+                <li class="rounded-2xl border border-stone-200 bg-stone-50 p-6">
+                    <p class="text-sm font-bold text-amber-600">03</p>
+                    <h3 class="mt-3 text-lg font-bold text-stone-900">Kom langs</h3>
+                    <p class="mt-2 text-sm text-stone-600">Je krijgt een e-mail ter bevestiging. Betalen doe je in de salon.</p>
+                </li>
+            </ol>
+        </div>
+    </section>
+
     {{-- CTA --}}
     <section class="bg-amber-500">
         <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-4 py-12 sm:px-6 md:flex-row">

@@ -2,11 +2,15 @@
 
 namespace App\Livewire;
 
+use App\Exceptions\SlotUnavailableException;
 use App\Mail\AppointmentConfirmed;
 use App\Models\Appointment;
 use App\Services\AvailabilityService;
+use App\Services\BookingService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
@@ -36,8 +40,13 @@ class AppointmentBooking extends Component
     /** Vrije tijden van de gekozen dag. */
     public array $times = [];
 
-    /** Na een geslaagde boeking staat hier het id. Dan tonen we het bevestigingsscherm. */
-    public ?int $bookedId = null;
+    /**
+     * Bewijs dat déze bezoeker de afspraak net zelf heeft gemaakt.
+     * Het afspraak-id staat alleen in de sessie, niet in deze property.
+     * #[Locked] zorgt dat de browser het token niet kan vervangen.
+     */
+    #[Locked]
+    public ?string $confirmationToken = null;
 
     /**
      * mount() draait één keer als de pagina opent.
@@ -63,7 +72,7 @@ class AppointmentBooking extends Component
      */
     public function loadDates(): void
     {
-        $service = new AvailabilityService();
+        $service = new AvailabilityService;
         $this->dates = [];
 
         foreach ($service->bookableDates() as $day) {
@@ -90,7 +99,7 @@ class AppointmentBooking extends Component
             return;
         }
 
-        $service = new AvailabilityService();
+        $service = new AvailabilityService;
         $this->times = $service->availableSlots(Carbon::parse($this->date));
     }
 
@@ -147,11 +156,19 @@ class AppointmentBooking extends Component
             return;
         }
 
-        $service = new AvailabilityService();
+        $notes = trim($this->notes);
         $date = Carbon::parse($this->date);
 
-        // Opnieuw controleren: iemand anders kan dezelfde tijd net geboekt hebben.
-        if (! $service->isSlotAvailable($date, $this->time)) {
+        try {
+            $appointment = app(BookingService::class)->reserve(
+                $date,
+                $this->time,
+                trim($this->name),
+                strtolower(trim($this->email)),
+                trim($this->phone),
+                $notes === '' ? null : $notes,
+            );
+        } catch (SlotUnavailableException) {
             $this->time = '';
             $this->loadTimes();
             $this->addError('time', 'Dit tijdstip is helaas net bezet geraakt. Kies een ander tijdstip.');
@@ -159,22 +176,9 @@ class AppointmentBooking extends Component
             return;
         }
 
-        $notes = trim($this->notes);
-
-        $appointment = Appointment::create([
-            'name' => trim($this->name),
-            'email' => strtolower(trim($this->email)),
-            'phone' => trim($this->phone),
-            'date' => $date->toDateString(),
-            'start_time' => $this->time,
-            'end_time' => $service->endTimeFor($this->time),
-            'status' => Appointment::STATUS_PENDING,
-            'notes' => $notes === '' ? null : $notes,
-        ]);
-
         Mail::to($appointment->email)->send(new AppointmentConfirmed($appointment));
 
-        $this->bookedId = $appointment->id;
+        $this->rememberConfirmation($appointment);
     }
 
     /**
@@ -182,7 +186,8 @@ class AppointmentBooking extends Component
      */
     public function bookAnother(): void
     {
-        $this->bookedId = null;
+        session()->forget('booking_confirmation');
+        $this->confirmationToken = null;
         $this->time = '';
         $this->name = '';
         $this->email = '';
@@ -192,13 +197,53 @@ class AppointmentBooking extends Component
         $this->loadTimes();
     }
 
+    /**
+     * Koppel de bevestiging aan de sessie. Een ander id in de browser levert geen klantgegevens op.
+     */
+    private function rememberConfirmation(Appointment $appointment): void
+    {
+        $token = Str::random(40);
+
+        session([
+            'booking_confirmation' => [
+                'token' => $token,
+                'id' => $appointment->id,
+            ],
+        ]);
+
+        $this->confirmationToken = $token;
+    }
+
+    private function confirmedAppointment(): ?Appointment
+    {
+        $confirmation = session('booking_confirmation');
+
+        if (! is_array($confirmation) || ! is_string($this->confirmationToken)) {
+            return null;
+        }
+
+        $storedToken = $confirmation['token'] ?? null;
+
+        if (! is_string($storedToken) || ! hash_equals($storedToken, $this->confirmationToken)) {
+            return null;
+        }
+
+        $id = $confirmation['id'] ?? null;
+
+        if (is_int($id)) {
+            $appointmentId = $id;
+        } elseif (is_string($id) && ctype_digit($id)) {
+            $appointmentId = (int) $id;
+        } else {
+            return null;
+        }
+
+        return Appointment::query()->find($appointmentId);
+    }
+
     public function render()
     {
-        $booked = null;
-
-        if ($this->bookedId !== null) {
-            $booked = Appointment::find($this->bookedId);
-        }
+        $booked = $this->confirmedAppointment();
 
         $dateLabel = '';
 

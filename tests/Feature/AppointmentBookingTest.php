@@ -6,9 +6,11 @@ use App\Livewire\AppointmentBooking;
 use App\Mail\AppointmentConfirmed;
 use App\Models\Appointment;
 use App\Services\AvailabilityService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -132,6 +134,78 @@ class AppointmentBookingTest extends TestCase
 
         $this->assertDatabaseCount('appointments', 1);
         Mail::assertNothingSent();
+    }
+
+    public function test_confirmation_does_not_reveal_another_customers_details(): void
+    {
+        Mail::fake();
+
+        Appointment::create($this->payload([
+            'name' => 'Geheime Klant',
+            'email' => 'geheim@example.com',
+            'start_time' => '11:00',
+            'end_time' => '11:30',
+        ]));
+
+        session([
+            'booking_confirmation' => [
+                'token' => 'gestolen-token',
+                'id' => Appointment::query()->where('email', 'geheim@example.com')->value('id'),
+            ],
+        ]);
+
+        Livewire::test(AppointmentBooking::class)
+            ->assertDontSee('geheim@example.com')
+            ->assertDontSee('Geheime Klant')
+            ->assertDontSee('Je afspraak is aangevraagd!');
+
+        $this->expectException(CannotUpdateLockedPropertyException::class);
+
+        Livewire::test(AppointmentBooking::class)->set('confirmationToken', 'gestolen-token');
+    }
+
+    public function test_database_rejects_a_second_active_booking_for_the_same_slot(): void
+    {
+        Appointment::create($this->payload([
+            'start_time' => '10:00',
+            'end_time' => '10:30',
+        ]));
+
+        $this->expectException(UniqueConstraintViolationException::class);
+
+        Appointment::create($this->payload([
+            'email' => 'tweede@example.com',
+            'start_time' => '10:00',
+            'end_time' => '10:30',
+        ]));
+    }
+
+    public function test_cancelled_slot_can_be_booked_again(): void
+    {
+        Mail::fake();
+
+        $cancelled = Appointment::create($this->payload([
+            'start_time' => '15:00',
+            'end_time' => '15:30',
+            'status' => Appointment::STATUS_CANCELLED,
+        ]));
+
+        $this->assertNull($cancelled->fresh()->active_slot);
+
+        Livewire::test(AppointmentBooking::class)
+            ->call('selectDate', '2026-09-08')
+            ->call('selectTime', '15:00')
+            ->set('name', 'Nieuwe Klant')
+            ->set('email', 'nieuw@example.com')
+            ->set('phone', '0612345678')
+            ->call('book')
+            ->assertHasNoErrors()
+            ->assertSee('Je afspraak is aangevraagd!')
+            ->assertSee('nieuw@example.com')
+            ->assertDontSee('bestaand@example.com');
+
+        $this->assertSame(Appointment::STATUS_CANCELLED, $cancelled->fresh()->status);
+        $this->assertSame('2026-09-08|15:00', Appointment::query()->where('email', 'nieuw@example.com')->value('active_slot'));
     }
 
     private function payload(array $overrides = []): array

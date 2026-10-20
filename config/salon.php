@@ -53,4 +53,17 @@ return [
 
     'booking_window_days' => 30,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Beheerder
+    |--------------------------------------------------------------------------
+    | Alleen via .env. Er is geen standaardwachtwoord.
+    | Het wachtwoord moet minimaal 12 tekens zijn (zie AdminUserSeeder).
+    */
+
+    'admin' => [
+        'email' => env('ADMIN_EMAIL'),
+        'password' => env('ADMIN_PASSWORD'),
+    ],
+
 ];

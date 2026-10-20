@@ -2,7 +2,7 @@
     {{-- $booked is gevuld nadat book() is gelukt. Dan tonen we alleen dit scherm. --}}
     @if ($booked)
         {{-- Bevestiging --}}
-        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-8 text-center shadow-sm">
+        <div class="rounded-3xl border border-emerald-200 bg-emerald-50 p-8 text-center shadow-sm sm:p-10">
             <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
@@ -45,7 +45,7 @@
     @else
         <form wire:submit="book" class="space-y-8">
             {{-- Stap 1: datum --}}
-            <section class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+            <section class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
                 <h2 class="flex items-center gap-3 text-lg font-bold text-stone-900">
                     <span class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm text-white">1</span>
                     Kies een datum
@@ -75,7 +75,7 @@
             </section>
 
             {{-- Stap 2: tijd --}}
-            <section class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+            <section class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
                 <h2 class="flex items-center gap-3 text-lg font-bold text-stone-900">
                     <span class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm text-white">2</span>
                     Kies een tijd
@@ -114,7 +114,7 @@
             </section>
 
             {{-- Stap 3: gegevens --}}
-            <section class="rounded-2xl border border-stone-200 bg-white p-6 shadow-sm">
+            <section class="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm">
                 <h2 class="flex items-center gap-3 text-lg font-bold text-stone-900">
                     <span class="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500 text-sm text-white">3</span>
                     Jouw gegevens
@@ -152,7 +152,7 @@
             </section>
 
             {{-- Samenvatting + verzenden --}}
-            <div class="flex flex-col items-start justify-between gap-4 rounded-2xl bg-stone-900 p-6 text-white sm:flex-row sm:items-center">
+            <div class="flex flex-col items-start justify-between gap-4 rounded-3xl bg-stone-900 p-6 text-white shadow-lg sm:flex-row sm:items-center">
                 <div>
                     <p class="text-sm text-stone-300">Jouw afspraak</p>
                     <p class="text-lg font-semibold">

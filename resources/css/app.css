@@ -8,3 +8,9 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
+@layer base {
+    html {
+        scroll-behavior: smooth;
+    }
+}
+

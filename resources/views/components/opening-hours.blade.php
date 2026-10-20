@@ -7,8 +7,13 @@
 <ul {{ $attributes->merge(['class' => 'space-y-1']) }}>
     @foreach ($days as $dow => $label)
         @php($hours = config('salon.opening_hours.'.$dow))
-        <li @class(['flex justify-between gap-4', 'font-semibold text-stone-900' => $dow === $today])>
-            <span>{{ $label }}</span>
+        <li @class(['flex justify-between gap-4', 'font-semibold' => $dow === $today])>
+            <span class="inline-flex items-center gap-2">
+                @if ($dow === $today)
+                    <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                @endif
+                {{ $label }}
+            </span>
             <span>{{ $hours ? $hours['open'].' – '.$hours['close'] : 'Gesloten' }}</span>
         </li>
     @endforeach

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -15,7 +16,9 @@ class Appointment extends Model
     // Deze statussen staan als Engelse woorden in de database.
     // Op het scherm gebruiken we de Nederlandse naam (zie statusName()).
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_CONFIRMED = 'confirmed';
+
     public const STATUS_CANCELLED = 'cancelled';
 
     /**
@@ -41,6 +44,33 @@ class Appointment extends Model
         return [
             'date' => 'date',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Appointment $appointment): void {
+            $appointment->active_slot = $appointment->isCancelled()
+                ? null
+                : self::slotKey($appointment->dateKey(), (string) $appointment->start_time);
+        });
+    }
+
+    /**
+     * Sleutel van een bezet tijdslot, bijvoorbeeld 2026-09-08|10:00.
+     * Die waarde staat uniek in de database zolang de afspraak niet geannuleerd is.
+     */
+    public static function slotKey(string $date, string $time): string
+    {
+        return substr($date, 0, 10).'|'.substr($time, 0, 5);
+    }
+
+    public function dateKey(): string
+    {
+        if ($this->date instanceof CarbonInterface) {
+            return $this->date->toDateString();
+        }
+
+        return substr((string) $this->date, 0, 10);
     }
 
     /**

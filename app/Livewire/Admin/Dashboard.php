@@ -2,9 +2,12 @@
 
 namespace App\Livewire\Admin;
 
+use App\Exceptions\SlotUnavailableException;
 use App\Models\Appointment;
 use App\Services\AvailabilityService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 /**
@@ -24,6 +27,15 @@ class Dashboard extends Component
     public string $status = '';
 
     public string $search = '';
+
+    /**
+     * Draait bij elke Livewire-aanvraag, ook na het laden van de pagina.
+     * De routemiddleware dekt /livewire/update niet opnieuw.
+     */
+    public function boot(): void
+    {
+        abort_unless(auth()->user()?->is_admin === true, 403);
+    }
 
     public function mount(): void
     {
@@ -94,30 +106,31 @@ class Dashboard extends Component
      */
     public function restore(int $id): void
     {
-        $appointment = Appointment::find($id);
+        try {
+            DB::transaction(function () use ($id): void {
+                $appointment = Appointment::query()->lockForUpdate()->find($id);
 
-        if ($appointment === null) {
-            return;
+                if ($appointment === null || ! $appointment->isCancelled()) {
+                    return;
+                }
+
+                $slot = Appointment::slotKey($appointment->dateKey(), $appointment->startLabel());
+
+                $taken = Appointment::query()
+                    ->where('active_slot', $slot)
+                    ->lockForUpdate()
+                    ->exists();
+
+                if ($taken) {
+                    throw new SlotUnavailableException;
+                }
+
+                $appointment->status = Appointment::STATUS_PENDING;
+                $appointment->save();
+            });
+        } catch (SlotUnavailableException|UniqueConstraintViolationException) {
+            $this->addError('restore', 'Dit tijdslot is inmiddels door een andere afspraak bezet.');
         }
-
-        $others = Appointment::query()
-            ->whereDate('date', $appointment->date->toDateString())
-            ->where('id', '!=', $appointment->id)
-            ->get();
-
-        foreach ($others as $other) {
-            $sameTime = $other->startLabel() === $appointment->startLabel();
-            $stillActive = ! $other->isCancelled();
-
-            if ($sameTime && $stillActive) {
-                $this->addError('restore', 'Dit tijdslot is inmiddels door een andere afspraak bezet.');
-
-                return;
-            }
-        }
-
-        $appointment->status = Appointment::STATUS_PENDING;
-        $appointment->save();
     }
 
     public function delete(int $id): void
@@ -131,7 +144,7 @@ class Dashboard extends Component
 
     public function render()
     {
-        $service = new AvailabilityService();
+        $service = new AvailabilityService;
         $selectedDay = Carbon::parse($this->date);
 
         $stats = $this->stats();

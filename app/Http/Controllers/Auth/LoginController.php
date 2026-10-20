@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -12,17 +14,16 @@ use Illuminate\Support\Facades\Auth;
  */
 class LoginController extends Controller
 {
-    public function show()
+    public function show(): View|RedirectResponse
     {
-        // Iemand die al ingelogd is, sturen we meteen naar het dashboard.
-        if (Auth::check()) {
+        if (Auth::user()?->is_admin === true) {
             return redirect()->route('admin.dashboard');
         }
 
         return view('admin.login');
     }
 
-    public function login(Request $request)
+    public function login(Request $request): RedirectResponse
     {
         $data = $request->validate([
             'email' => ['required', 'email'],
@@ -35,7 +36,6 @@ class LoginController extends Controller
 
         $remember = $request->boolean('remember');
 
-        // Auth::attempt zoekt de gebruiker en controleert het wachtwoord.
         if (! Auth::attempt(['email' => $data['email'], 'password' => $data['password']], $remember)) {
             return back()
                 ->withInput($request->only('email'))
@@ -44,13 +44,24 @@ class LoginController extends Controller
                 ]);
         }
 
-        // Nieuw sessie-id, zodat een oud id niet hergebruikt kan worden.
+        if (Auth::user()?->is_admin !== true) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return back()
+                ->withInput($request->only('email'))
+                ->withErrors([
+                    'email' => 'Dit account heeft geen toegang tot het beheer.',
+                ]);
+        }
+
         $request->session()->regenerate();
 
         return redirect()->route('admin.dashboard');
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request): RedirectResponse
     {
         Auth::logout();
         $request->session()->invalidate();

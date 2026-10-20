@@ -1,8 +1,13 @@
 <x-layouts.app title="Inloggen">
     <section class="mx-auto flex max-w-md flex-col px-4 py-20 sm:px-6">
         <div class="rounded-2xl border border-stone-200 bg-white p-8 shadow-sm">
-            <h1 class="text-2xl font-bold text-stone-900">Beheer inloggen</h1>
-            <p class="mt-1 text-sm text-stone-500">Alleen voor medewerkers van {{ config('salon.name') }}.</p>
+            <div class="flex items-center gap-3">
+                <span class="flex h-11 w-11 items-center justify-center rounded-full bg-amber-500 text-lg font-bold text-white">K</span>
+                <div>
+                    <h1 class="text-2xl font-bold text-stone-900">Beheer inloggen</h1>
+                    <p class="text-sm text-stone-500">Alleen voor medewerkers van {{ config('salon.name') }}.</p>
+                </div>
+            </div>
 
             <form method="POST" action="{{ route('admin.login.attempt') }}" class="mt-6 space-y-4">
                 @csrf

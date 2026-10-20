@@ -17,15 +17,16 @@ Route::post('/contact', [ContactController::class, 'send'])->name('contact.send'
 Route::get('/afspraak', [PageController::class, 'appointment'])->name('appointment');
 
 /*
-| Beheer. middleware('auth') betekent: alleen als je bent ingelogd.
-| Anders stuurt Laravel je naar de loginpagina (zie bootstrap/app.php).
+| Beheer.
+| auth = ingelogd, admin = de gebruiker is ook echt beheerder.
+| throttle:admin-login beperkt het aantal inlogpogingen.
 */
 Route::prefix('admin')->name('admin.')->group(function () {
     Route::get('/login', [LoginController::class, 'show'])->name('login');
-    Route::post('/login', [LoginController::class, 'login'])->name('login.attempt');
+    Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:admin-login')->name('login.attempt');
     Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
 
-    Route::middleware('auth')->group(function () {
+    Route::middleware(['auth', 'admin'])->group(function () {
         Route::view('/', 'admin.dashboard')->name('dashboard');
     });
 });

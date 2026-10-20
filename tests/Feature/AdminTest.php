@@ -34,7 +34,7 @@ class AdminTest extends TestCase
 
     public function test_admin_can_login_and_logout(): void
     {
-        $user = User::factory()->create(['email' => 'kapper@example.com']);
+        $user = User::factory()->admin()->create(['email' => 'kapper@example.com']);
 
         $this->post(route('admin.login.attempt'), [
             'email' => 'kapper@example.com',
@@ -59,7 +59,7 @@ class AdminTest extends TestCase
 
     public function test_admin_can_manage_appointments(): void
     {
-        $this->actingAs(User::factory()->create());
+        $this->actingAs(User::factory()->admin()->create());
 
         $appointment = Appointment::create([
             'name' => 'Klant Vandaag',
@@ -96,12 +96,15 @@ class AdminTest extends TestCase
 
         $component->call('confirm', $appointment->id);
         $this->assertSame(Appointment::STATUS_CONFIRMED, $appointment->fresh()->status);
+        $this->assertSame('2026-09-08|10:00', $appointment->fresh()->active_slot);
 
         $component->call('cancel', $appointment->id);
         $this->assertSame(Appointment::STATUS_CANCELLED, $appointment->fresh()->status);
+        $this->assertNull($appointment->fresh()->active_slot);
 
         $component->call('restore', $appointment->id)->assertHasNoErrors();
         $this->assertSame(Appointment::STATUS_PENDING, $appointment->fresh()->status);
+        $this->assertSame('2026-09-08|10:00', $appointment->fresh()->active_slot);
 
         $component->call('cancel', $appointment->id)->call('delete', $appointment->id);
         $this->assertDatabaseMissing('appointments', ['id' => $appointment->id]);
@@ -109,7 +112,7 @@ class AdminTest extends TestCase
 
     public function test_restore_fails_when_slot_is_taken(): void
     {
-        $this->actingAs(User::factory()->create());
+        $this->actingAs(User::factory()->admin()->create());
 
         $cancelled = Appointment::create([
             'name' => 'Geannuleerd',
@@ -136,5 +139,47 @@ class AdminTest extends TestCase
             ->assertHasErrors('restore');
 
         $this->assertSame(Appointment::STATUS_CANCELLED, $cancelled->fresh()->status);
+    }
+
+    public function test_non_admin_cannot_open_the_dashboard(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'klant@example.com',
+        ]);
+
+        $this->post(route('admin.login.attempt'), [
+            'email' => 'klant@example.com',
+            'password' => 'password',
+        ])->assertSessionHasErrors([
+            'email' => 'Dit account heeft geen toegang tot het beheer.',
+        ]);
+        $this->assertGuest();
+
+        $this->actingAs($user)
+            ->get(route('admin.dashboard'))
+            ->assertForbidden();
+
+        Livewire::test(Dashboard::class)->assertForbidden();
+    }
+
+    public function test_login_locks_after_five_attempts(): void
+    {
+        User::factory()->admin()->create(['email' => 'kapper@example.com']);
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->post(route('admin.login.attempt'), [
+                'email' => 'kapper@example.com',
+                'password' => 'verkeerd',
+            ])->assertSessionHasErrors('email');
+        }
+
+        $response = $this->post(route('admin.login.attempt'), [
+            'email' => 'kapper@example.com',
+            'password' => 'password',
+        ]);
+
+        $response->assertSessionHasErrors('email');
+        $this->assertStringContainsString('Te veel inlogpogingen', session('errors')->first('email'));
+        $this->assertGuest();
     }
 }

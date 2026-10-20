@@ -6,10 +6,12 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ isset($title) ? $title.' – ' : '' }}{{ config('salon.name') }}</title>
     <meta name="description" content="{{ $description ?? config('salon.name').' – jouw lokale kapper. Maak eenvoudig online een afspraak.' }}">
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
-<body class="flex min-h-full flex-col bg-stone-50 font-sans text-stone-800 antialiased">
+<body class="flex min-h-full flex-col bg-stone-50 font-sans text-stone-800 antialiased selection:bg-amber-200 selection:text-stone-900">
     {{-- Menu. Op een telefoon opent <details> het menu. Op een groot scherm staat het menu altijd open. --}}
     <header class="sticky top-0 z-40 border-b border-stone-200 bg-white/90 backdrop-blur">
         <nav class="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
