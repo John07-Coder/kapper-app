@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use Throwable;
 
 /**
  * Het boekingsformulier op /afspraak.
@@ -176,9 +177,22 @@ class AppointmentBooking extends Component
             return;
         }
 
-        Mail::to($appointment->email)->send(new AppointmentConfirmed($appointment));
-
         $this->rememberConfirmation($appointment);
+        $this->queueConfirmation($appointment);
+    }
+
+    /**
+     * De afspraak staat al vast. Een mislukte mail mag die boeking niet ongedaan maken.
+     */
+    private function queueConfirmation(Appointment $appointment): void
+    {
+        try {
+            Mail::to($appointment->email)->queue(
+                (new AppointmentConfirmed($appointment))->afterCommit(),
+            );
+        } catch (Throwable) {
+            // AppointmentConfirmed::failed() schrijft de fout weg.
+        }
     }
 
     /**

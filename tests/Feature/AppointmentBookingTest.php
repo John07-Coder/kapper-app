@@ -8,10 +8,17 @@ use App\Models\Appointment;
 use App\Services\AvailabilityService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Log\Events\MessageLogged;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
+use Symfony\Component\Mailer\Envelope;
+use Symfony\Component\Mailer\Exception\TransportException;
+use Symfony\Component\Mailer\SentMessage;
+use Symfony\Component\Mailer\Transport\TransportInterface;
+use Symfony\Component\Mime\RawMessage;
 use Tests\TestCase;
 
 class AppointmentBookingTest extends TestCase
@@ -93,7 +100,7 @@ class AppointmentBookingTest extends TestCase
         $this->assertSame(Appointment::STATUS_PENDING, $appointment->status);
         $this->assertSame('Kort aan de zijkanten', $appointment->notes);
 
-        Mail::assertSent(AppointmentConfirmed::class, function ($mail) {
+        Mail::assertQueued(AppointmentConfirmed::class, function ($mail) {
             return $mail->hasTo('jan@example.com');
         });
     }
@@ -133,7 +140,7 @@ class AppointmentBookingTest extends TestCase
             ->assertHasErrors(['time']);
 
         $this->assertDatabaseCount('appointments', 1);
-        Mail::assertNothingSent();
+        Mail::assertNothingOutgoing();
     }
 
     public function test_confirmation_does_not_reveal_another_customers_details(): void
@@ -206,6 +213,49 @@ class AppointmentBookingTest extends TestCase
 
         $this->assertSame(Appointment::STATUS_CANCELLED, $cancelled->fresh()->status);
         $this->assertSame('2026-09-08|15:00', Appointment::query()->where('email', 'nieuw@example.com')->value('active_slot'));
+    }
+
+    public function test_booking_succeeds_when_the_confirmation_mail_fails(): void
+    {
+        $logged = [];
+
+        Log::listen(function (MessageLogged $event) use (&$logged): void {
+            $logged[] = $event->message;
+        });
+
+        Mail::extend('failing', function () {
+            return new class implements TransportInterface
+            {
+                public function send(RawMessage $message, ?Envelope $envelope = null): ?SentMessage
+                {
+                    throw new TransportException('smtp down');
+                }
+
+                public function __toString(): string
+                {
+                    return 'failing';
+                }
+            };
+        });
+
+        config([
+            'mail.default' => 'failing',
+            'mail.mailers.failing' => ['transport' => 'failing'],
+        ]);
+
+        Livewire::test(AppointmentBooking::class)
+            ->call('selectDate', '2026-09-08')
+            ->call('selectTime', '16:00')
+            ->set('name', 'Jan Jansen')
+            ->set('email', 'jan@example.com')
+            ->set('phone', '0612345678')
+            ->call('book')
+            ->assertHasNoErrors()
+            ->assertSee('Je afspraak is aangevraagd!')
+            ->assertSee('jan@example.com');
+
+        $this->assertNotNull(Appointment::query()->where('email', 'jan@example.com')->first());
+        $this->assertContains('Bevestigingsmail kon niet worden verstuurd.', $logged);
     }
 
     private function payload(array $overrides = []): array

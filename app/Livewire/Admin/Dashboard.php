@@ -82,12 +82,14 @@ class Dashboard extends Component
 
     public function confirm(int $id): void
     {
-        $appointment = Appointment::find($id);
+        $appointment = Appointment::query()->find($id);
 
-        if ($appointment !== null) {
-            $appointment->status = Appointment::STATUS_CONFIRMED;
-            $appointment->save();
+        if ($appointment === null || $appointment->status !== Appointment::STATUS_PENDING) {
+            return;
         }
+
+        $appointment->status = Appointment::STATUS_CONFIRMED;
+        $appointment->save();
     }
 
     public function cancel(int $id): void

@@ -141,6 +141,40 @@ class AdminTest extends TestCase
         $this->assertSame(Appointment::STATUS_CANCELLED, $cancelled->fresh()->status);
     }
 
+    public function test_confirm_leaves_a_cancelled_appointment_unchanged(): void
+    {
+        $this->actingAs(User::factory()->admin()->create());
+
+        $cancelled = Appointment::create([
+            'name' => 'Geannuleerd',
+            'email' => 'geannuleerd@example.com',
+            'phone' => '0611111111',
+            'date' => '2026-09-09',
+            'start_time' => '11:00',
+            'end_time' => '11:30',
+            'status' => Appointment::STATUS_CANCELLED,
+        ]);
+
+        Appointment::create([
+            'name' => 'Nieuwe boeking',
+            'email' => 'bezet@example.com',
+            'phone' => '0622222222',
+            'date' => '2026-09-09',
+            'start_time' => '11:00',
+            'end_time' => '11:30',
+            'status' => Appointment::STATUS_PENDING,
+        ]);
+
+        Livewire::test(Dashboard::class)
+            ->call('confirm', $cancelled->id)
+            ->assertHasNoErrors();
+
+        $cancelled->refresh();
+
+        $this->assertSame(Appointment::STATUS_CANCELLED, $cancelled->status);
+        $this->assertNull($cancelled->active_slot);
+    }
+
     public function test_non_admin_cannot_open_the_dashboard(): void
     {
         $user = User::factory()->create([

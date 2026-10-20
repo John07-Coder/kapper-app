@@ -19,7 +19,7 @@ class AppointmentSeeder extends Seeder
             return;
         }
 
-        $service = new AvailabilityService();
+        $service = new AvailabilityService;
 
         $customers = [
             ['Jan de Vries', 'jan@example.com', '06 12345678'],
